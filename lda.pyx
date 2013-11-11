@@ -66,9 +66,9 @@ cdef class CollapsedSampler(object):
         self.docs = []
         self.labels = []
 
-        self.topic_word_c = np.zeros((num_topics,num_vocab),dtype=np.int32)
-        self.document_topic_c = np.zeros((doc_capacity,num_topics),dtype=np.int32)
-        self.topic_c = np.zeros(num_topics,dtype=np.int32)
+        self.topic_word_c = np.zeros((num_topics,num_vocab),dtype=DTYPE)
+        self.document_topic_c = np.zeros((doc_capacity,num_topics),dtype=DTYPE)
+        self.topic_c = np.zeros(num_topics,dtype=DTYPE)
 
         self.topic_scores_buf = np.empty(self.num_topics,dtype=np.double)
         self.word_scores_buf = np.empty(self.num_vocab,dtype=np.double)
