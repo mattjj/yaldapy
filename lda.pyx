@@ -1,4 +1,5 @@
 # distutils: name = lda
+# distutils: extra_compile_args = -O3 -w
 # cython: boundscheck=False
 # cython: nonecheck=False
 # cython: wraparound=False
