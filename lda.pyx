@@ -31,7 +31,6 @@ cdef class CollapsedSampler(object):
     cdef public double beta
     cdef public int num_topics
     cdef public int num_vocab
-    cdef public int num_documents
     cdef public list docs
     cdef public list labels
 
