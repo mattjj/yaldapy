@@ -7,9 +7,6 @@ python setup.py build_ext --inplace
 # Example #
 
 ```python
-from __future__ import division
-import numpy as np
-
 import lda
 
 ### generate data
