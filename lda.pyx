@@ -3,17 +3,25 @@
 # cython: boundscheck=False
 # cython: nonecheck=False
 # cython: wraparound=False
+# cython: initializedcheck=False
+# cython: cdivision=True
 
 import numpy as np
 cimport numpy as np
 
-import cython
 
-DTYPE = np.int32
-ctypedef np.int32_t DTYPE_t
+TOPIC = np.uint16
+ctypedef np.uint16_t TOPIC_t
 
-cdef DTYPE_t sample_discrete(double[:] probs):
-    cdef DTYPE_t i
+WORD = np.uint16
+ctypedef np.uint16_t WORD_t
+
+COUNT = np.uint16
+ctypedef np.uint16_t COUNT_t
+
+
+cdef TOPIC_t sample_discrete(double[:] probs):
+    cdef TOPIC_t i
     cdef double r = 0
     for i in range(probs.shape[0]):
         r += probs[i]
@@ -24,6 +32,7 @@ cdef DTYPE_t sample_discrete(double[:] probs):
             break
     return i
 
+
 cdef class CollapsedSampler(object):
     ### python-accessible attributes
 
@@ -31,143 +40,103 @@ cdef class CollapsedSampler(object):
     cdef public double beta
     cdef public int num_topics
     cdef public int num_vocab
-    cdef public list docs
-    cdef public list labels
 
     property topic_word_counts:
         def __get__(self):
-            return np.asarray(self.topic_word_c)
+            return np.asarray(self.word_topic_c).T
 
     property document_topic_counts:
         def __get__(self):
-            return np.asarray(self.document_topic_c[:len(self.docs)])
+            return np.asarray(self.document_topic_c)
 
-    ### internal counts
+    ### internal document representation and cached counts
 
-    cdef DTYPE_t[:,:] topic_word_c
-    cdef DTYPE_t[:,:] document_topic_c
-    cdef DTYPE_t[:] topic_c
+    cdef WORD_t[::1] words
+    cdef TOPIC_t[::1] topics
+    cdef int[::1] docstarts
+
+    cdef COUNT_t[:,::1] word_topic_c
+    cdef COUNT_t[:,::1] document_topic_c
+    cdef COUNT_t[::1] topic_c
 
     ### pre-allocated temporaries because cython can't do dynamic stack arrays
 
-    cdef double[:] topic_scores_buf
-    cdef double[:] word_scores_buf
+    cdef double[::1] topic_scores_buf
+    cdef double[::1] word_scores_buf
 
-    def __init__(self,
-            double alpha, double beta,
-            int num_topics, int num_vocab,
-            int doc_capacity=0):
+    def __init__(self, double alpha, double beta, int num_topics, int num_vocab):
         self.alpha = alpha
         self.beta = beta
         self.num_topics = num_topics
         self.num_vocab = num_vocab
 
-        self.docs = []
-        self.labels = []
+        self.words = np.empty(0,dtype=WORD)
+        self.topics = np.empty(0,dtype=TOPIC)
+        self.docstarts = np.zeros(1,dtype=np.int32)
 
-        self.topic_word_c = np.zeros((num_topics,num_vocab),dtype=DTYPE)
-        self.document_topic_c = np.zeros((doc_capacity,num_topics),dtype=DTYPE)
-        self.topic_c = np.zeros(num_topics,dtype=DTYPE)
+        self.word_topic_c = np.zeros((num_vocab,num_topics),dtype=COUNT)
+        self.document_topic_c = np.zeros((0,num_topics),dtype=COUNT)
+        self.topic_c = np.zeros(num_topics,dtype=COUNT)
 
         self.topic_scores_buf = np.empty(self.num_topics,dtype=np.double)
         self.word_scores_buf = np.empty(self.num_vocab,dtype=np.double)
 
     ### Gibbs sampling
 
-    def resample(self,niter=1):
-        cdef int itr, doc_id, word_idx
-        cdef DTYPE_t[:] doc, labels
+    def resample(self,int niter):
+        cdef int itr, doc, i
         for itr in range(niter):
-            for doc_id in range(len(self.docs)):
-                doc = self.docs[doc_id]
-                labels = self.labels[doc_id]
-                for word_idx in range(doc.shape[0]):
-                    self.count(labels[word_idx],doc[word_idx],doc_id,-1)
-                    labels[word_idx] = self.gibbs_sample_topic(doc[word_idx],doc_id)
-                    self.count(labels[word_idx],doc[word_idx],doc_id,1)
+            for doc in range(self.docstarts.shape[0]-1):
+                for i in range(self.docstarts[doc],self.docstarts[doc+1]):
+                    self.count(self.topics[i],self.words[i],doc,-1)
+                    self.topics[i] = self.sample_topic(self.words[i],doc)
+                    self.count(self.topics[i],self.words[i],doc,1)
 
-    cdef void count(self, int topic, DTYPE_t word, int doc_id, DTYPE_t inc):
+    cdef inline void count(self, TOPIC_t topic, WORD_t word, int doc_id, int inc):
         self.topic_c[topic] += inc
-        self.topic_word_c[topic,word] += inc
+        self.word_topic_c[word,topic] += inc
         self.document_topic_c[doc_id,topic] += inc
 
-    cdef DTYPE_t gibbs_sample_topic(self, DTYPE_t word, int doc_id):
-        cdef double[:] scores = self.topic_scores_buf
-        cdef int t
+    cdef inline TOPIC_t sample_topic(self, WORD_t word, int doc_id):
+        cdef TOPIC_t t
         for t in range(self.num_topics):
-            scores[t] = self.gibbs_score(t,word,doc_id)
-        return sample_discrete(scores)
+            self.topic_scores_buf[t] = self.score(t,word,doc_id)
+        return sample_discrete(self.topic_scores_buf)
 
-    cdef double gibbs_score(self, int topic, DTYPE_t word, int doc_id):
-        return (self.alpha/self.num_topics + self.document_topic_c[doc_id,topic]) \
-                * (self.beta/self.num_vocab + self.topic_word_c[topic,word]) \
-                  / (self.beta + self.topic_c[topic])
+    cdef inline double score(self, TOPIC_t topic, WORD_t word, int doc_id):
+        return (self.alpha + self.document_topic_c[doc_id,topic]) \
+                * (self.beta + self.word_topic_c[word,topic]) \
+                  / (self.beta*self.num_vocab + self.topic_c[topic])
 
     ### adding documents and initialization
 
-    def add_documents(self, list documents):
-        self.ensure_capacity(len(self.docs) + len(documents))
-        for doc in documents:
-            self.labels.append(self.generate_labels(doc))
-            self.docs.append(doc)
+    def add_documents_spmat(self, spmatrix):
+        assert spmatrix.shape[1] == self.num_vocab, 'vocabulary size mismatch'
+        csr_matrix = spmatrix.tocsr()
+        prev_num_documents = self.document_topic_c.shape[0]
 
-    def ensure_capacity(self, int required_capacity):
-        cdef DTYPE_t[:,:] new_document_topic_c
-        if self.document_topic_c.shape[0] < required_capacity:
-            new_document_topic_c = \
-                    np.zeros((required_capacity,self.document_topic_c.shape[1]),dtype=DTYPE)
-            new_document_topic_c[:len(self.docs)] = self.document_topic_c[:len(self.docs)]
-            self.document_topic_c = new_document_topic_c
+        # extend internal sparse document representation and counts array
+        self.docstarts = np.concatenate((
+            self.docstarts,
+            np.cumsum(np.asarray(csr_matrix.sum(1)).squeeze()).astype(np.int32)))
+        self.words = np.concatenate((
+            self.words,
+            np.repeat(csr_matrix.indices,csr_matrix.data).astype(WORD)))
+        self.topics = np.concatenate((
+            self.topics,
+            np.empty(csr_matrix.data.sum(),dtype=TOPIC))) # filled in below
 
-    cdef DTYPE_t[:] generate_labels(self, np.ndarray[DTYPE_t,ndim=1,mode='c'] npdoc):
-        cdef int i
-        cdef int N = npdoc.shape[0]
-        cdef int doc_id = len(self.docs)
-        cdef np.ndarray[DTYPE_t,ndim=1,mode='c'] nplabels = np.empty(N,dtype=DTYPE)
+        self.document_topic_c = np.concatenate((
+            self.document_topic_c,
+            np.zeros((csr_matrix.shape[0],self.num_topics),dtype=COUNT)))
 
-        cdef DTYPE_t[:] labels = nplabels
-        cdef DTYPE_t[:] doc = npdoc
-        for i in range(N):
-            labels[i] = self.gibbs_sample_topic(doc[i],doc_id)
-            self.count(labels[i],doc[i],doc_id,1)
-        return labels
+        # initialize newly added documents
+        self.sample_forwards(prev_num_documents)
 
-    ### generating synthetic data
-
-    def generate_documents(self, list document_lengths):
-        self.ensure_capacity(len(self.docs) + len(document_lengths))
-        for N in document_lengths:
-            labels, doc = self.generate_labels_and_words(N)
-            self.docs.append(doc)
-            self.labels.append(labels)
-
-    cdef tuple generate_labels_and_words(self, int N):
-        cdef int i
-        cdef int doc_id = len(self.docs)
-        cdef np.ndarray[DTYPE_t,ndim=1,mode='c'] nplabels = np.empty(N,dtype=DTYPE)
-        cdef np.ndarray[DTYPE_t,ndim=1,mode='c'] npwords = np.empty(N,dtype=DTYPE)
-
-        cdef DTYPE_t[:] labels = nplabels
-        cdef DTYPE_t[:] words = npwords
-
-        for i in range(N):
-            labels[i] = self.prior_sample_topic(doc_id)
-            words[i] = self.prior_sample_word(labels[i])
-            self.count(labels[i],words[i],doc_id,1)
-
-        return nplabels, npwords
-
-    cdef DTYPE_t prior_sample_topic(self, int doc_id):
-        cdef double[:] scores = self.topic_scores_buf
-        cdef int t
-        for t in range(self.num_topics):
-            scores[t] = self.alpha/self.num_topics + self.document_topic_c[doc_id,t]
-        return sample_discrete(scores)
-
-    cdef DTYPE_t prior_sample_word(self, int topic):
-        cdef double[:] scores = self.word_scores_buf
-        cdef int w
-        for w in range(self.num_vocab):
-            scores[w] = self.beta/self.num_vocab + self.topic_word_c[topic,w]
-        return sample_discrete(scores)
+    cdef void sample_forwards(self, int prev_num_documents):
+        cdef int doc, i
+        for doc in range(prev_num_documents,self.docstarts.shape[0]-1):
+            for i in range(self.docstarts[doc],self.docstarts[doc+1]):
+                self.topics[i] = self.sample_topic(self.words[i],doc)
+                self.count(self.topics[i],self.words[i],doc,1)
 
