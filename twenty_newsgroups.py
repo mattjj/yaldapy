@@ -25,15 +25,15 @@ print "ok -- gensim model fit"
 
 #### yalda
 import lda
-yalda_model = lda.CollapsedSampler(
+model = lda.CollapsedSampler(
         alpha = 1., # number-of-topics-in-document concentration parameter
         beta = 2., # number-of-words-in-topic concentration parameter
         num_topics = 2,
         num_vocab = vectors.shape[1])
-yalda_model.add_documents_spmat(vectors)
-yalda_model.resample(100)
+model.add_documents_spmat(vectors)
+model.resample(100)
 
-yalda_counts = yalda_model.topic_word_counts
+counts = model.topic_word_counts
 # I believe the topic_word_counts is analogous to
 # the \lambda in gensim.
 

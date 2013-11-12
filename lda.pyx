@@ -8,6 +8,8 @@
 import numpy as np
 cimport numpy as np
 
+cimport cython
+
 from libc.stdlib cimport rand, RAND_MAX
 
 TOPIC = np.uint16
@@ -49,10 +51,22 @@ cdef class CollapsedSampler(object):
         def __get__(self):
             return np.asarray(self.document_topic_c)
 
+    property documents:
+        @cython.wraparound(True)
+        def __get__(self):
+            return [np.asarray(self.words[start:stop])
+                    for start,stop in zip(self.docstarts[:-1],self.docstarts[1:])]
+
+    property topic_labels:
+        @cython.wraparound(True)
+        def __get__(self):
+            return [np.asarray(self.labels[start:stop])
+                    for start,stop in zip(self.docstarts[:-1],self.docstarts[1:])]
+
     ### internal document representation and cached counts
 
     cdef WORD_t[::1] words
-    cdef TOPIC_t[::1] topics
+    cdef TOPIC_t[::1] labels
     cdef int[::1] docstarts
 
     cdef COUNT_t[:,::1] word_topic_c
@@ -71,7 +85,7 @@ cdef class CollapsedSampler(object):
         self.num_vocab = num_vocab
 
         self.words = np.empty(0,dtype=WORD)
-        self.topics = np.empty(0,dtype=TOPIC)
+        self.labels = np.empty(0,dtype=TOPIC)
         self.docstarts = np.zeros(1,dtype=np.int32)
 
         self.word_topic_c = np.zeros((num_vocab,num_topics),dtype=COUNT)
@@ -88,9 +102,9 @@ cdef class CollapsedSampler(object):
         for itr in range(niter):
             for doc in range(self.docstarts.shape[0]-1):
                 for i in range(self.docstarts[doc],self.docstarts[doc+1]):
-                    self.count(self.topics[i],self.words[i],doc,-1)
-                    self.topics[i] = self.sample_topic(self.words[i],doc)
-                    self.count(self.topics[i],self.words[i],doc,1)
+                    self.count(self.labels[i],self.words[i],doc,-1)
+                    self.labels[i] = self.sample_topic(self.words[i],doc)
+                    self.count(self.labels[i],self.words[i],doc,1)
 
     cdef inline void count(self, TOPIC_t topic, WORD_t word, int doc_id, int inc):
         self.topic_c[topic] += inc
@@ -122,8 +136,8 @@ cdef class CollapsedSampler(object):
         self.words = np.concatenate((
             self.words,
             np.repeat(csr_matrix.indices,csr_matrix.data).astype(WORD)))
-        self.topics = np.concatenate((
-            self.topics,
+        self.labels = np.concatenate((
+            self.labels,
             np.empty(csr_matrix.data.sum(),dtype=TOPIC))) # filled in below
 
         self.document_topic_c = np.concatenate((
@@ -137,6 +151,6 @@ cdef class CollapsedSampler(object):
         cdef int doc, i
         for doc in range(prev_num_documents,self.docstarts.shape[0]-1):
             for i in range(self.docstarts[doc],self.docstarts[doc+1]):
-                self.topics[i] = self.sample_topic(self.words[i],doc)
-                self.count(self.topics[i],self.words[i],doc,1)
+                self.labels[i] = self.sample_topic(self.words[i],doc)
+                self.count(self.labels[i],self.words[i],doc,1)
 
