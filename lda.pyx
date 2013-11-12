@@ -9,6 +9,7 @@
 import numpy as np
 cimport numpy as np
 
+from libc.stdlib cimport rand, RAND_MAX
 
 TOPIC = np.uint16
 ctypedef np.uint16_t TOPIC_t
@@ -25,7 +26,7 @@ cdef TOPIC_t sample_discrete(double[:] probs):
     cdef double r = 0
     for i in range(probs.shape[0]):
         r += probs[i]
-    r *= np.random.rand()
+    r *= (<double> rand()) / RAND_MAX
     for i in range(probs.shape[0]):
         r -= probs[i]
         if r < 0:
