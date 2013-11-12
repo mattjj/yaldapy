@@ -28,28 +28,11 @@ yalda_model = lda.CollapsedSampler(
         alpha = 1., # number-of-topics-in-document concentration parameter
         beta = 2., # number-of-words-in-topic concentration parameter
         num_topics = 2,
-        num_vocab = 4999)
-ndarrays = vectors_to_list(vectors)
-yalda_model.add_documents(ndarrays)
+        num_vocab = vectors.shape[1])
+yalda_model.add_documents(vectors)
 yalda_model.resample(niter=100)
-### compare \lambdas, etc .. (?)
 
 yalda_counts = yalda_model.topic_word_counts
 # I believe the topic_word_counts is analogous to 
 # the \lambda in gensim.
-
-'''
-In [207]: y_counts[1][0]/float(sum(y_counts[1]))
-Out[207]: 0.98250900075680858
-'''
-
-def vectors_to_list(feature_vectors):
-    '''
-    for testing only! not exactly efficient. 
-    '''
-    array_ls = []
-    for i in xrange(feature_vectors.shape[0]):
-        array_ls.append(feature_vectors.getrow(i).toarray()[0].astype("int32"))
-    return array_ls
-
 
