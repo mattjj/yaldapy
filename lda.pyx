@@ -11,6 +11,7 @@ cimport numpy as np
 cimport cython
 
 from libc.stdlib cimport rand, RAND_MAX
+from libc.stdio cimport printf, fflush, stdout
 
 TOPIC = np.uint16
 ctypedef np.uint16_t TOPIC_t
@@ -105,6 +106,7 @@ cdef class CollapsedSampler(object):
                     self.count(self.labels[i],self.words[i],doc,-1)
                     self.labels[i] = self.sample_topic(self.words[i],doc)
                     self.count(self.labels[i],self.words[i],doc,1)
+            printf("."); fflush(stdout)
 
     cdef inline void count(self, TOPIC_t topic, WORD_t word, int doc_id, int inc):
         self.topic_c[topic] += inc
