@@ -75,6 +75,7 @@ cdef class CollapsedSampler(object):
     cdef COUNT_t[::1] topic_c
 
     ### pre-allocated temporaries because cython can't do dynamic stack arrays
+    # http://trac.cython.org/cython_trac/ticket/749
 
     cdef double[::1] topic_scores_buf
     cdef double[::1] word_scores_buf
