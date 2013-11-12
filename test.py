@@ -20,3 +20,19 @@ def generate_synthetic(alpha, beta, num_topics, num_vocab, document_lengths):
 
     return document_topic_mat, topic_word_mat, documents
 
+def test1():
+    alpha = 5.
+    beta = 20.
+    num_toipcs = 50
+    num_vocab = 1000
+    document_lengths = [100]*1000
+
+    true_doc_topic, true_topic_word, docs = generate_synthetic(alpha,beta,
+            num_topics,num_vocab,document_lengths)
+    true_doc_word = true_doc_topic.dot(true_topic_word)
+    true_word_word = true_doc_word.T.dot(true_doc_word)
+    true_word_word /= true_word_word.sum(1)[:,None]
+
+    # TODO
+
+
