@@ -129,7 +129,7 @@ cdef class CollapsedSampler(object):
 
     def add_documents_spmat(self, spmatrix):
         assert spmatrix.shape[1] == self.num_vocab, 'vocabulary size mismatch'
-        csr_matrix = spmatrix.tocsr()
+        csr_matrix = spmatrix.tocsr().astype(np.int32)
         prev_num_documents = self.document_topic_c.shape[0]
 
         # extend internal sparse document representation and counts array
