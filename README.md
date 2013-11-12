@@ -7,36 +7,34 @@ python setup.py build_ext --inplace
 # Example #
 
 ```python
+from sklearn.datasets import fetch_20newsgroups
+from sklearn.feature_extraction.text import CountVectorizer
+
+cats = ['alt.atheism', 'sci.space']
+newsgroups_train = fetch_20newsgroups(subset="train", categories=cats)
+
+vectorizer = CountVectorizer(stop_words="english", max_features=5000)
+vectors = vectorizer.fit_transform(newsgroups_train.data)
+
+### build model
+
 import lda
-
-### generate data
-
-truemodel = lda.CollapsedSampler(
-        alpha = 5., # number-of-topics-in-document concentration parameter
-        beta = 20., # number-of-words-in-topic concentration parameter
-        num_topics = 100,
-        num_vocab = 1000,
-        )
-
-# generate 100 documents of length 1000
-truemodel.generate_documents([1000]*100)
-
-documents = truemodel.docs
-
-### do some inference
 
 model = lda.CollapsedSampler(
         alpha = 5., # number-of-topics-in-document concentration parameter
         beta = 20., # number-of-words-in-topic concentration parameter
-        num_topics = 100,
-        num_vocab = 1000,
+        num_topics = 25,
+        num_vocab = vectors.shape[1],
         )
 
-model.add_documents(documents)
-model.resample(niter=10)
+model.add_documents_spmat(vectors)
+
+### run inference
+
+model.resample(niter=100)
 ```
 
 # TODO #
-* test! all I know is it goes fast and doesn't segfault
+* test!
 * split/merge moves
-* permute things (random scan)?
+* hogwild
