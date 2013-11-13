@@ -31,6 +31,15 @@ model.add_documents_spmat(vectors)
 
 ### run inference
 
+# Perplexity example #
+
+import perplexity check
+perplexity_check.sanity_check(normalize=True)
+
+* This produces a plot of the perplexity assessed over training (observed) and held-out data. The perplexities will be normalized if normalize=True. 
+
+![alt tag](https://raw.github.com/mattjj/yaldapy/master/perplexity.png)
+
 model.resample(100)
 ```
 
