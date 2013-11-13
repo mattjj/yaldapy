@@ -75,6 +75,7 @@ cdef class CollapsedSampler(object):
     cdef COUNT_t[::1] topic_c
 
     ### pre-allocated temporaries because cython can't do dynamic stack arrays
+    # http://trac.cython.org/cython_trac/ticket/749
 
     cdef double[::1] topic_scores_buf
     cdef double[::1] word_scores_buf
@@ -128,8 +129,7 @@ cdef class CollapsedSampler(object):
 
     def add_documents_spmat(self, spmatrix):
         assert spmatrix.shape[1] == self.num_vocab, 'vocabulary size mismatch'
-
-        csr_matrix = spmatrix.tocsr()
+        csr_matrix = spmatrix.tocsr().astype(np.int32)
         prev_num_documents = self.document_topic_c.shape[0]
   
         # extend internal sparse document representation and counts array
