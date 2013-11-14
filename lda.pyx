@@ -46,14 +46,14 @@ cdef class CollapsedSampler(object):
             return np.asarray(self.word_topic_c).T
 
         def __set__(self,topic_word_counts):
-            self.word_topic_c = topic_word_counts.T.astype(COUNT)
+            self.word_topic_c = topic_word_counts.T.astype(COUNT,order='C')
 
     property document_topic_counts:
         def __get__(self):
             return np.asarray(self.document_topic_c)
 
         def __set__(self,document_topic_counts):
-            self.document_topic_c = document_topic_counts.astype(COUNT)
+            self.document_topic_c = document_topic_counts.astype(COUNT,order='C')
 
     property documents:
         @cython.wraparound(True)
