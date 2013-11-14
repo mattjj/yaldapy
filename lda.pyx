@@ -23,13 +23,13 @@ COUNT = np.uint16
 ctypedef np.uint16_t COUNT_t
 
 
-cdef TOPIC_t sample_discrete(double[:] probs, double tot):
+cdef inline TOPIC_t sample_discrete(double[:] probs, double tot):
     cdef TOPIC_t i
     tot *= (<double> rand()) / RAND_MAX
     for i in range(probs.shape[0]):
         tot -= probs[i]
-        if tot < 0:
-            break
+        if tot < 0.:
+            return i
     return i
 
 
@@ -75,7 +75,6 @@ cdef class CollapsedSampler(object):
     # http://trac.cython.org/cython_trac/ticket/749
 
     cdef double[::1] topic_scores_buf
-    cdef double[::1] word_scores_buf
 
     def __init__(self, double alpha, double beta, int num_topics, int num_vocab):
         self.alpha = alpha
@@ -92,7 +91,6 @@ cdef class CollapsedSampler(object):
         self.topic_c = np.zeros(num_topics,dtype=COUNT)
 
         self.topic_scores_buf = np.empty(self.num_topics,dtype=np.double)
-        self.word_scores_buf = np.empty(self.num_vocab,dtype=np.double)
 
     ### Gibbs sampling
 
@@ -113,7 +111,7 @@ cdef class CollapsedSampler(object):
 
     cdef inline TOPIC_t sample_topic(self, WORD_t word, int doc_id):
         cdef TOPIC_t t
-        cdef double score, tot
+        cdef double score, tot = 0.
         for t in range(self.num_topics):
             score = self.score(t,word,doc_id)
             self.topic_scores_buf[t] = score
@@ -131,7 +129,7 @@ cdef class CollapsedSampler(object):
         assert spmatrix.shape[1] == self.num_vocab, 'vocabulary size mismatch'
         csr_matrix = spmatrix.tocsr().astype(np.int32)
         prev_num_documents = self.document_topic_c.shape[0]
-  
+
         # extend internal sparse document representation and counts array
         self.docstarts = np.concatenate((
             self.docstarts,
@@ -140,7 +138,7 @@ cdef class CollapsedSampler(object):
         self.words = np.concatenate((
             self.words,
             np.repeat(csr_matrix.indices,csr_matrix.data.astype(np.int32)).astype(WORD)))
-        
+
         self.labels = np.concatenate((
             self.labels,
             np.empty(csr_matrix.data.sum(),dtype=TOPIC))) # filled in below
