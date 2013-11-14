@@ -23,15 +23,12 @@ COUNT = np.uint16
 ctypedef np.uint16_t COUNT_t
 
 
-cdef TOPIC_t sample_discrete(double[:] probs):
+cdef TOPIC_t sample_discrete(double[:] probs, double tot):
     cdef TOPIC_t i
-    cdef double r = 0
+    tot *= (<double> rand()) / RAND_MAX
     for i in range(probs.shape[0]):
-        r += probs[i]
-    r *= (<double> rand()) / RAND_MAX
-    for i in range(probs.shape[0]):
-        r -= probs[i]
-        if r < 0:
+        tot -= probs[i]
+        if tot < 0:
             break
     return i
 
@@ -116,9 +113,12 @@ cdef class CollapsedSampler(object):
 
     cdef inline TOPIC_t sample_topic(self, WORD_t word, int doc_id):
         cdef TOPIC_t t
+        cdef double score, tot
         for t in range(self.num_topics):
-            self.topic_scores_buf[t] = self.score(t,word,doc_id)
-        return sample_discrete(self.topic_scores_buf)
+            score = self.score(t,word,doc_id)
+            self.topic_scores_buf[t] = score
+            tot += score
+        return sample_discrete(self.topic_scores_buf,tot)
 
     cdef inline double score(self, TOPIC_t topic, WORD_t word, int doc_id):
         return (self.alpha + self.document_topic_c[doc_id,topic]) \
