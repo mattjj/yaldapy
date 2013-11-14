@@ -31,7 +31,7 @@ model.add_documents_spmat(vectors)
 
 ### run inference
 
-model.resample(niter=100)
+model.resample(100)
 ```
 
 # TODO #
