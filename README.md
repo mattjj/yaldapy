@@ -27,7 +27,7 @@ model = lda.CollapsedSampler(
         num_vocab = vectors.shape[1],
         )
 
-model.add_documents_spmat(vectors)
+model.add_documents(vectors)
 
 ### run inference
 

@@ -131,7 +131,7 @@ cdef class CollapsedSampler(object):
 
     ### adding documents and initialization
 
-    def add_documents_spmat(self, spmatrix):
+    def add_documents(self, spmatrix):
         assert spmatrix.shape[1] == self.num_vocab, 'vocabulary size mismatch'
         csr_matrix = spmatrix.tocsr().astype(np.int32)
         prev_num_documents = self.document_topic_c.shape[0]
@@ -162,4 +162,18 @@ cdef class CollapsedSampler(object):
             for i in range(self.docstarts[doc],self.docstarts[doc+1]):
                 self.labels[i] = self.sample_topic(self.words[i],doc)
                 self.count(self.labels[i],self.words[i],doc,1)
+
+    ### perplexity
+
+    def perplexity(self, spmatrix):
+        assert spmatrix.shape[1] == self.num_vocab, 'vocabulary size mismatch'
+        csr_matrix = spmatrix.tocsr()
+
+        word_topic_ps = np.asarray(self.word_topic_c) + self.beta
+        word_topic_ps /= word_topic_ps.sum(0)
+        word_ps = word_topic_ps.sum(1) / self.num_topics
+
+        return np.exp(
+                -(np.log(word_ps) * np.asarray(csr_matrix.sum(0)).ravel()
+                    ).sum() / csr_matrix.sum())
 

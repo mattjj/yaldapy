@@ -30,7 +30,7 @@ model = lda.CollapsedSampler(
         beta = 2., # number-of-words-in-topic concentration parameter
         num_topics = 2,
         num_vocab = vectors.shape[1])
-model.add_documents_spmat(vectors)
+model.add_documents(vectors)
 model.resample(100)
 
 counts = model.topic_word_counts

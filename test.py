@@ -36,18 +36,54 @@ def test_initialize_at_truth():
             num_topics,num_vocab,document_lengths)
 
     model = lda.CollapsedSampler(alpha,beta,num_topics,num_vocab)
-    model.add_documents_spmat(docs)
+    model.add_documents(docs)
 
     # initialize at truth
     model.document_topic_counts = (model.document_topic_counts.sum(1)[:,None] * doc_topic).round()
     model.topic_word_counts = (model.topic_word_counts.sum(1)[:,None] * topic_word).round()
 
-    model.resample(1000)
+    perplexities = []
+    for itr in range(10):
+        model.resample(100)
+        perplexities.append(model.perplexity(docs))
 
     plt.matshow(topic_word[:20,:20])
     plt.title('true topic_word on first 20 words')
     plt.matshow(model.topic_word_counts[:20,:20])
     plt.title('topic_word counts on first 20 words')
+    plt.figure()
+    plt.plot(perplexities)
+    plt.title('training perplexities')
+
+def test_synthetic(niter=50):
+    global alpha, beta, num_topics, num_vocab, document_lengths, \
+            doc_topic, topic_word, docs, model
+    alpha = 5.
+    beta = 20.
+    num_topics = 20
+    num_vocab = 1000
+    document_lengths = [100]*1000
+
+    doc_topic, topic_word, docs = generate_synthetic(alpha,beta,
+            num_topics,num_vocab,document_lengths)
+
+    model = lda.CollapsedSampler(alpha,beta,num_topics,num_vocab)
+    model.add_documents(docs)
+
+    perplexities = []
+    for itr in range(niter):
+        model.resample(100)
+        perplexities.append(model.perplexity(docs))
+        print ''
+        print perplexities[-1]
+
+    plt.matshow(topic_word[:20,:20])
+    plt.title('true topic_word on first 20 words')
+    plt.matshow(model.topic_word_counts[:20,:20])
+    plt.title('topic_word counts on first 20 words')
+    plt.figure()
+    plt.plot(perplexities)
+    plt.title('training perplexities')
 
 if __name__ == '__main__':
     test_initialize_at_truth()

@@ -22,19 +22,19 @@ def sanity_check(nsteps=10, niters=25, plot_f="perplexity.png", normalize=False)
             num_topics = 20,
             num_vocab = 5000)
 
-    yalda.add_documents_spmat(train_vectors)
+    yalda.add_documents(train_vectors)
 
     Z_train, Z_test = 1.0, 1.0
-    train_0, test_0 = perplexity(yalda, train_vectors), perplexity(yalda, test_vectors)
+    train_0, test_0 = yalda.perplexity(train_vectors), yalda.perplexity(test_vectors)
     if normalize:
         Z_train, Z_test = train_0, test_0
-    
+
     train_perplexities = [train_0/Z_train]
     test_perplexities = [test_0/Z_test]
     for i in xrange(nsteps):
         yalda.resample(niters)
-        test_perp = perplexity(yalda, test_vectors) 
-        train_perp = perplexity(yalda, train_vectors)
+        test_perp = yalda.perplexity(test_vectors)
+        train_perp = yalda.perplexity(train_vectors)
         print "@ step {0}: train perplexity={1}; test perplexity={2}".format(i, train_perp, test_perp)
         # 'normalizing' to show change over time.
         train_perplexities.append(train_perp/Z_train)
@@ -52,6 +52,8 @@ def sanity_check(nsteps=10, niters=25, plot_f="perplexity.png", normalize=False)
     if plot_f:
         pylab.savefig(plot_f)
 
+    return yalda
+
 
 def perplexity(model, D):
     word_ps = numpy.matrix([(model.topic_word_counts[i] + model.alpha)/float(sum(model.topic_word_counts[i] + model.alpha))
@@ -68,5 +70,5 @@ def perplexity(model, D):
             doc_perp += w_n * numpy.log(doc_topic_ps * word_ps[:,w_i])
         # divide by word count for doc
         perp += doc_perp / float(D_sparse[0].indices.shape[0])
-    perp = -perp / float(n_test_docs) 
+    perp = -perp / float(n_test_docs)
     return perp[0,0]
