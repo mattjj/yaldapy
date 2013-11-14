@@ -37,7 +37,7 @@ model.resample(100)
 # Perplexity example #
 
 ```
-import perplexity check
+import perplexity_check
 perplexity_check.sanity_check(normalize=True)
 ```
 
