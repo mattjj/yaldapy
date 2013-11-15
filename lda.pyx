@@ -13,14 +13,14 @@ cimport cython
 from libc.stdlib cimport rand, RAND_MAX
 from libc.stdio cimport printf, fflush, stdout
 
-TOPIC = np.uint16
-ctypedef np.uint16_t TOPIC_t
+TOPIC = np.uint32
+ctypedef np.uint32_t TOPIC_t
 
-WORD = np.uint16
-ctypedef np.uint16_t WORD_t
+WORD = np.uint32
+ctypedef np.uint32_t WORD_t
 
-COUNT = np.uint16
-ctypedef np.uint16_t COUNT_t
+COUNT = np.uint32
+ctypedef np.uint32_t COUNT_t
 
 
 cdef inline TOPIC_t sample_discrete(double[:] probs, double tot):
@@ -133,7 +133,7 @@ cdef class CollapsedSampler(object):
 
     def add_documents(self, spmatrix, initialization='singletopic'):
         assert spmatrix.shape[1] == self.num_vocab, 'vocabulary size mismatch'
-        assert initialization in ('forward','singletopic')
+        assert initialization in ('forward','singletopic','uniform')
         csr_matrix = spmatrix.tocsr().astype(np.int32)
         prev_num_documents = self.document_topic_c.shape[0]
 
@@ -144,7 +144,7 @@ cdef class CollapsedSampler(object):
 
         self.words = np.concatenate((
             self.words,
-            np.repeat(csr_matrix.indices,csr_matrix.data.astype(np.int32)).astype(WORD)))
+            np.repeat(csr_matrix.indices,csr_matrix.data).astype(WORD)))
 
         self.labels = np.concatenate((
             self.labels,
@@ -159,6 +159,8 @@ cdef class CollapsedSampler(object):
             self.init_sample_forwards(prev_num_documents)
         elif initialization == 'singletopic':
             self.init_single_topic(prev_num_documents)
+        elif initialization == 'uniform':
+            self.init_uniform(prev_num_documents)
 
     cdef void init_sample_forwards(self, int prev_num_documents):
         cdef int doc, i
@@ -168,11 +170,22 @@ cdef class CollapsedSampler(object):
                 self.count(self.labels[i],self.words[i],doc,1)
 
     cdef void init_single_topic(self, int prev_num_documents):
+        self.labels[self.docstarts[prev_num_documents]:] = 0
+        self.init_count(prev_num_documents)
+
+    @cython.wraparound(True)
+    cdef void init_uniform(self, int prev_num_documents):
+        cdef int firstidx = self.docstarts[prev_num_documents]
+        self.labels[firstidx:] = \
+                np.random.randint(self.num_topics,size=self.docstarts[-1] - firstidx)
+        self.init_count(prev_num_documents)
+
+    cdef void init_count(self, int prev_num_documents):
         cdef int doc, i
         for doc in range(prev_num_documents,self.docstarts.shape[0]-1):
             for i in range(self.docstarts[doc],self.docstarts[doc+1]):
-                self.labels[i] = 0
                 self.count(self.labels[i],self.words[i],doc,1)
+
 
     ### perplexity
 
