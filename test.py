@@ -55,14 +55,14 @@ def test_initialize_at_truth():
     plt.plot(perplexities)
     plt.title('training perplexities')
 
-def test_synthetic(niter=50,nsubiter=5):
+def test_synthetic(niter=25,nsubiter=5):
     global alpha, beta, num_topics, num_vocab, document_lengths, \
             doc_topic, topic_word, docs, model
-    alpha = 1. # topic-doc
-    beta = 10. # topic-word
+    alpha = 2. # topic-doc
+    beta = 20. # topic-word
     num_topics = 20
-    num_vocab = 100
-    document_lengths = [200]*1000
+    num_vocab = 1000
+    document_lengths = [200]*5000
 
     doc_topic, topic_word, docs = generate_synthetic(alpha,beta,
             num_topics,num_vocab,document_lengths)
