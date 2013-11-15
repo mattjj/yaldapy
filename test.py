@@ -58,11 +58,11 @@ def test_initialize_at_truth():
 def test_synthetic(niter=25,nsubiter=5):
     global alpha, beta, num_topics, num_vocab, document_lengths, \
             doc_topic, topic_word, docs, model
-    alpha = 2. # topic-doc
+    alpha = 5. # topic-doc
     beta = 20. # topic-word
     num_topics = 20
     num_vocab = 1000
-    document_lengths = [200]*5000
+    document_lengths = [500]*5000
 
     doc_topic, topic_word, docs = generate_synthetic(alpha,beta,
             num_topics,num_vocab,document_lengths)
