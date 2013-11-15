@@ -131,8 +131,9 @@ cdef class CollapsedSampler(object):
 
     ### adding documents and initialization
 
-    def add_documents(self, spmatrix):
+    def add_documents(self, spmatrix, initialization='singletopic'):
         assert spmatrix.shape[1] == self.num_vocab, 'vocabulary size mismatch'
+        assert initialization in ('forward','singletopic')
         csr_matrix = spmatrix.tocsr().astype(np.int32)
         prev_num_documents = self.document_topic_c.shape[0]
 
@@ -154,13 +155,23 @@ cdef class CollapsedSampler(object):
             np.zeros((csr_matrix.shape[0],self.num_topics),dtype=COUNT)))
 
         # initialize newly added documents
-        self.sample_forwards(prev_num_documents)
+        if initialization == 'forward':
+            self.init_sample_forwards(prev_num_documents)
+        elif initialization == 'singletopic':
+            self.init_single_topic(prev_num_documents)
 
-    cdef void sample_forwards(self, int prev_num_documents):
+    cdef void init_sample_forwards(self, int prev_num_documents):
         cdef int doc, i
         for doc in range(prev_num_documents,self.docstarts.shape[0]-1):
             for i in range(self.docstarts[doc],self.docstarts[doc+1]):
                 self.labels[i] = self.sample_topic(self.words[i],doc)
+                self.count(self.labels[i],self.words[i],doc,1)
+
+    cdef void init_single_topic(self, int prev_num_documents):
+        cdef int doc, i
+        for doc in range(prev_num_documents,self.docstarts.shape[0]-1):
+            for i in range(self.docstarts[doc],self.docstarts[doc+1]):
+                self.labels[i] = 0
                 self.count(self.labels[i],self.words[i],doc,1)
 
     ### perplexity
